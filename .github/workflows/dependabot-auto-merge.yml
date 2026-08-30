@@ -135,23 +135,34 @@ jobs:
           # as success. The caller fires on multiple events (pull_request +
           # check_suite), so a later run often finds auto-merge already enabled.
           benign="already in progress|already enabled|clean status|not mergeable: the merge commit cannot be cleanly created"
+          # Private repos on GitHub Free cannot enable Allow auto-merge.
+          no_auto="auto merge is not allowed|enablePullRequestAutoMerge"
+
+          merge_now() {
+            if out=$(gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" $method_flag 2>&1); then
+              echo "Merged #$PR"
+              return 0
+            elif echo "$out" | grep -qiE "$benign"; then
+              echo "Merge already in progress on #$PR; nothing to do"
+              return 0
+            else
+              echo "$out" >&2
+              return 1
+            fi
+          }
 
           if [ "$USE_AUTO" = "true" ]; then
             if out=$(gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto $method_flag 2>&1); then
               echo "Enabled auto-merge on #$PR"
             elif echo "$out" | grep -qiE "$benign"; then
               echo "Auto-merge already enabled / in progress on #$PR; nothing to do"
+            elif echo "$out" | grep -qiE "$no_auto"; then
+              echo "Allow auto-merge is unavailable on this repository; falling back to direct merge"
+              merge_now
             else
               echo "$out" >&2
               exit 1
             fi
           else
-            if out=$(gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" $method_flag 2>&1); then
-              echo "Merged #$PR"
-            elif echo "$out" | grep -qiE "$benign"; then
-              echo "Merge already in progress on #$PR; nothing to do"
-            else
-              echo "$out" >&2
-              exit 1
-            fi
+            merge_now
           fi

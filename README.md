@@ -72,7 +72,11 @@ jobs:
     secrets: inherit
 ```
 
-Enable Allow auto-merge on the caller repo. Do not add workflows write to permissions.
+Enable Allow auto-merge on the caller repo when available (public repos, or
+private on Team/Enterprise). On GitHub Free private repos the workflow falls
+back to a direct merge when checks make the PR mergeable.
+
+Do not add workflows write to permissions.
 
 ## Pinning
 
