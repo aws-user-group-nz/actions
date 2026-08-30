@@ -1,0 +1,75 @@
+name: markdown-lint
+
+on:
+  workflow_call:
+    inputs:
+      config:
+        type: string
+        required: false
+        default: |
+          {
+            "comment": "Default rules",
+            "default": true,
+            "whitespace": false,
+            "line_length": false,
+            "ul-start-left": false,
+            "ul-indent": false,
+            "no-inline-html": false,
+            "no-bare-urls": false,
+            "fenced-code-language": false,
+            "first-line-h1": false,
+            "no-duplicate-heading": false,
+            "blanks-around-headings": false,
+            "no-emphasis-as-header": false,
+            "single-h1": false
+          }
+        description: |
+          a markdownlint compatible JSON object string
+      ignore:
+        type: string
+        required: false
+        default: node_modules
+        description: |
+          a space separated list of directories and files to ignore
+      node-version:
+        type: string
+        required: false
+        default: '20'
+        description: Node.js version used to install markdownlint-cli
+
+jobs:
+  markdown-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Resolve npm global root
+        id: npm
+        run: echo "root=$(npm root -g)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache markdownlint-cli
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.npm
+            ${{ steps.npm.outputs.root }}
+          key: markdownlint-cli-0.41.0-${{ runner.os }}-node${{ inputs.node-version }}
+
+      - id: lint
+        env:
+          CONFIG: ${{ inputs.config }}
+        run: |
+          IGNORE=""
+          for ITEM in ${{ inputs.ignore }}; do
+            IGNORE="$IGNORE --ignore $ITEM"
+          done
+          CONFIG_FILE="$(mktemp)"
+          cat <<< "$CONFIG" > "$CONFIG_FILE"
+          npm install -g markdownlint-cli@0.41.0
+          markdownlint '**/*.md' $IGNORE -c "$CONFIG_FILE"
